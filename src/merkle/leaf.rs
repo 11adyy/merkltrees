@@ -1,5 +1,6 @@
 use ripemd160;
 
+#[derive(Clone)]
 pub struct Leaf {
     pub left: Option<Box<Leaf>>,
     pub right: Option<Box<Leaf>>,
@@ -15,6 +16,10 @@ impl Leaf {
             hash: [0; 20],
             data: None
         }
+    }
+
+    pub fn equals(&self, leaf: &Leaf) -> bool {
+        return self.hash == leaf.hash;
     }
 
     pub fn create_from_data(data: &str) -> Leaf {
@@ -44,9 +49,5 @@ impl Leaf {
 
         self.hash = ripemd160::hash(&summary);
         return true;
-    }
-
-    pub fn is_leaf(&self) -> bool {
-        return self.left.is_none() && self.right.is_none();
     }
 }

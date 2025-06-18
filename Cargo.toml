@@ -5,4 +5,3 @@ edition = "2024"
 
 [dependencies]
 ripemd160 = { version = "0.1.0", path = "../Ripemd160" }
-hex = "0.4"
