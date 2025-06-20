@@ -8,19 +8,23 @@ pub struct Leaf {
     pub left: Option<std::rc::Rc<std::cell::RefCell<Leaf>>>,
     pub right: Option<std::rc::Rc<std::cell::RefCell<Leaf>>>,
 
+    /* Additional information */
+    pub sub_tree_size: i32,
+    pub max_value: i32,
+    pub avg_value: f64,
+    pub min_value: i32,
+
     /* Data and hash */
     pub hash: [u8; 20],
-    pub data: Option<String>
+    pub data: i128
 }
 
 impl Leaf {
     pub fn create() -> Leaf {
         return Leaf {
-            parent: None,
-            left: None,
-            right: None,
-            hash: [0; 20],
-            data: None
+            parent: None, left: None, right: None,
+            sub_tree_size: 0, max_value: 0, avg_value: 0., min_value: 0,
+            hash: [0; 20], data: 0
         }
     }
 
@@ -28,10 +32,10 @@ impl Leaf {
         return self.hash == leaf.hash;
     }
 
-    pub fn create_from_data(data: &str) -> Leaf {
+    pub fn create_from_data(data: i128) -> Leaf {
         let mut body: Leaf = Leaf::create();
-        body.data = Some(data.to_string());
-        body.hash = ripemd160::hash(data.as_bytes());
+        body.data = data;
+        body.hash = ripemd160::hash(&data.to_le_bytes());
         return body;
     }
 
