@@ -3,13 +3,15 @@ use digest_primitives;
 mod leaf;
 
 pub struct merkle-tree {
+    hash_function: digest_primitives::Hasher,
     leaves: Vec<std::rc::Rc<std::cell::RefCell<leaf::Leaf>>>,
     head: Option<std::rc::Rc<std::cell::RefCell<leaf::Leaf>>>
 }
 
 impl merkle-tree {
-    pub fn new() -> merkle-tree {
+    pub fn new(hash_function: digest_primitives::Hasher) -> merkle-tree {
         return merkle-tree {
+            hash_function: hash_function,
             leaves: vec![],
             head: None
         };
@@ -47,7 +49,7 @@ impl merkle-tree {
                     left.clone()
                 };
 
-                let parent = leaf::Leaf::create_from_childrens(left, right);
+                let parent = leaf::Leaf::create_from_childrens(self.hash_function, left, right);
                 next_level.push(parent);
                 i += 2;
             }
@@ -60,7 +62,7 @@ impl merkle-tree {
     }
 
     pub fn insert(&mut self, data: i128) -> bool {
-        let new_leaf = std::rc::Rc::new(std::cell::RefCell::new(leaf::Leaf::create_from_data(data)));
+        let new_leaf = std::rc::Rc::new(std::cell::RefCell::new(leaf::Leaf::create_from_data(data, self.hash_function)));
         self.leaves.push(new_leaf);
         return true;
     }
@@ -71,11 +73,11 @@ impl merkle-tree {
             None => return false,
         };
     
-        let new_hash = digest_primitives::ripemd160_hash(&data.to_le_bytes());
-    
         {
             let mut leaf_borrow = leaf.borrow_mut();
-            leaf_borrow.hash = new_hash;
+            if let Some(hasher) = digest_primitives::digest(self.hash_function) {
+                leaf_borrow.hash = hasher(&data.to_le_bytes());
+            }
         }
     
         if self.head.is_none() {
@@ -91,7 +93,7 @@ impl merkle-tree {
                 None => break,
             };
     
-            parent_rc.borrow_mut().rehash();
+            parent_rc.borrow_mut().rehash(self.hash_function);
             current = parent_rc;
         }
     

@@ -32,14 +32,18 @@ impl Leaf {
         return self.hash.equals(&leaf.hash);
     }
 
-    pub fn create_from_data(data: i128) -> Leaf {
+    pub fn create_from_data(data: i128, hash_function: digest_primitives::Hasher) -> Leaf {
         let mut body: Leaf = Leaf::create();
         body.data = data;
-        body.hash = digest_primitives::ripemd160_hash(&data.to_le_bytes());
+        if let Some(hasher) = digest_primitives::digest(hash_function) {
+            body.hash = hasher(&data.to_le_bytes());
+        }
+
         return body;
     }
 
     pub fn create_from_childrens(
+        hash_function: digest_primitives::Hasher,
         l: std::rc::Rc<std::cell::RefCell<Leaf>>,
         r: std::rc::Rc<std::cell::RefCell<Leaf>>,
     ) -> std::rc::Rc<std::cell::RefCell<Leaf>> {
@@ -57,11 +61,11 @@ impl Leaf {
             r.borrow_mut().parent = Some(weak_parent);
         }
 
-        body.borrow_mut().rehash();
+        body.borrow_mut().rehash(hash_function);
         return body;
     }
 
-    pub fn rehash(&mut self) -> bool {
+    pub fn rehash(&mut self, hash_function: digest_primitives::Hasher) -> bool {
         let left_rc = match &self.left {
             Some(rc) => rc.clone(),
             None => return false,
@@ -75,7 +79,10 @@ impl Leaf {
         let left = left_rc.borrow();
         let right = right_rc.borrow();
     
-        self.hash = digest_primitives::ripemd160_hash(left.hash.concat(&right.hash).to_bytes());
+        if let Some(hasher) = digest_primitives::digest(hash_function) {
+            self.hash = hasher(left.hash.concat(&right.hash).to_bytes());
+        }
+        
         return true;
     }
 }
