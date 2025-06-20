@@ -1,9 +1,14 @@
+use std;
 use ripemd160;
 
 #[derive(Clone)]
 pub struct Leaf {
-    pub left: Option<Box<Leaf>>,
-    pub right: Option<Box<Leaf>>,
+    /* Tree structure information */
+    pub parent: Option<std::rc::Weak<std::cell::RefCell<Leaf>>>,
+    pub left: Option<std::rc::Rc<std::cell::RefCell<Leaf>>>,
+    pub right: Option<std::rc::Rc<std::cell::RefCell<Leaf>>>,
+
+    /* Data and hash */
     pub hash: [u8; 20],
     pub data: Option<String>
 }
@@ -11,6 +16,7 @@ pub struct Leaf {
 impl Leaf {
     pub fn create() -> Leaf {
         return Leaf {
+            parent: None,
             left: None,
             right: None,
             hash: [0; 20],
@@ -29,24 +35,43 @@ impl Leaf {
         return body;
     }
 
-    pub fn create_from_childrens(l: Box<Leaf>, r: Box<Leaf>) -> Leaf {
-        let mut body: Leaf = Leaf::create();
-        body.left  = Some(l);
-        body.right = Some(r);
+    pub fn create_from_childrens(
+        l: std::rc::Rc<std::cell::RefCell<Leaf>>,
+        r: std::rc::Rc<std::cell::RefCell<Leaf>>,
+    ) -> std::rc::Rc<std::cell::RefCell<Leaf>> {
+        let body = std::rc::Rc::new(std::cell::RefCell::new(Leaf::create()));
 
-        body.rehash();
+        {
+            let mut body_mut = body.borrow_mut();
+            body_mut.left = Some(std::rc::Rc::clone(&l));
+            body_mut.right = Some(std::rc::Rc::clone(&r));
+        }
+
+        {
+            let weak_parent = std::rc::Rc::downgrade(&body);
+            l.borrow_mut().parent = Some(weak_parent.clone());
+            r.borrow_mut().parent = Some(weak_parent);
+        }
+
+        body.borrow_mut().rehash();
         return body;
     }
 
     pub fn rehash(&mut self) -> bool {
-        if self.left.is_none() || self.right.is_none() {
-            return false;
-        }
+        let left_rc = match &self.left {
+            Some(rc) => rc.clone(),
+            None => return false,
+        };
 
-        let left: &Box<Leaf>  = self.left.as_ref().unwrap();
-        let right: &Box<Leaf> = self.right.as_ref().unwrap();
+        let right_rc = match &self.right {
+            Some(rc) => rc.clone(),
+            None => return false,
+        };
+    
+        let left = left_rc.borrow();
+        let right = right_rc.borrow();
+    
         let summary: [u8; 40] = ripemd160::hashcat(&left.hash, &right.hash);
-
         self.hash = ripemd160::hash(&summary);
         return true;
     }
