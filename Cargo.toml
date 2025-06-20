@@ -1,7 +1,7 @@
 [package]
-name = "Merkle"
+name = "merkle"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-ripemd160 = { version = "0.1.0", path = "../Ripemd160" }
+digest_primitives = { path = "vendor/digest-primitives" }

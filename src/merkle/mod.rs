@@ -1,4 +1,5 @@
 use std;
+use digest_primitives;
 mod leaf;
 
 pub struct merkle-tree {
@@ -70,7 +71,7 @@ impl merkle-tree {
             None => return false,
         };
     
-        let new_hash = ripemd160::hash(&data.to_le_bytes());
+        let new_hash = digest_primitives::ripemd160_hash(&data.to_le_bytes());
     
         {
             let mut leaf_borrow = leaf.borrow_mut();

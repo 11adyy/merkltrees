@@ -3,12 +3,12 @@
 version = 4
 
 [[package]]
-name = "Merkle"
+name = "digest-primitives"
 version = "0.1.0"
-dependencies = [
- "ripemd160",
-]
 
 [[package]]
-name = "ripemd160"
+name = "merkle"
 version = "0.1.0"
+dependencies = [
+ "digest-primitives",
+]

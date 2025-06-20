@@ -1,5 +1,5 @@
 use std;
-use ripemd160;
+use digest_primitives;
 
 #[derive(Clone)]
 pub struct Leaf {
@@ -15,7 +15,7 @@ pub struct Leaf {
     pub min_value: i32,
 
     /* Data and hash */
-    pub hash: [u8; 20],
+    pub hash: digest_primitives::Hash,
     pub data: i128
 }
 
@@ -24,18 +24,18 @@ impl Leaf {
         return Leaf {
             parent: None, left: None, right: None,
             sub_tree_size: 0, max_value: 0, avg_value: 0., min_value: 0,
-            hash: [0; 20], data: 0
+            hash: digest_primitives::Hash::new(0), data: 0
         }
     }
 
     pub fn equals(&self, leaf: &Leaf) -> bool {
-        return self.hash == leaf.hash;
+        return self.hash.equals(&leaf.hash);
     }
 
     pub fn create_from_data(data: i128) -> Leaf {
         let mut body: Leaf = Leaf::create();
         body.data = data;
-        body.hash = ripemd160::hash(&data.to_le_bytes());
+        body.hash = digest_primitives::ripemd160_hash(&data.to_le_bytes());
         return body;
     }
 
@@ -75,8 +75,7 @@ impl Leaf {
         let left = left_rc.borrow();
         let right = right_rc.borrow();
     
-        let summary: [u8; 40] = ripemd160::hashcat(&left.hash, &right.hash);
-        self.hash = ripemd160::hash(&summary);
+        self.hash = digest_primitives::ripemd160_hash(left.hash.concat(&right.hash).to_bytes());
         return true;
     }
 }
