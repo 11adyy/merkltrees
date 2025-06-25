@@ -1,5 +1,73 @@
 use std::{self, cell::RefCell, rc::{Rc, Weak}};
 use digest_primitives;
+use crate::merkle::changer;
+
+pub fn compare_leafs<T: digest_primitives::Hashable + Clone>(
+    a: &Option<Rc<RefCell<Leaf<T>>>>,
+    b: &Option<Rc<RefCell<Leaf<T>>>>,
+    changes: &mut Vec<changer::ChangeOp<T>>,
+) -> () {
+    match (a, b) {
+        (None, None) => {}
+
+        (Some(na), None) => {
+            Leaf::get_changeset(&Some(na.clone()), changes, changer::ChangeKind::Delete);
+        }
+
+        (None, Some(nb)) => {
+            Leaf::get_changeset(&Some(nb.clone()), changes, changer::ChangeKind::Insert);
+        }
+
+        (Some(na), Some(nb)) => {
+            let na_borrow = na.borrow();
+            let nb_borrow = nb.borrow();
+
+            if na_borrow.hash.equals(&nb_borrow.hash) {
+                return;
+            }
+
+            let key_a = na_borrow.data.get_id();
+            let key_b = nb_borrow.data.get_id();
+
+            let is_a_leaf = na_borrow.left.is_none() && na_borrow.right.is_none();
+            let is_b_leaf = nb_borrow.left.is_none() && nb_borrow.right.is_none();
+
+            drop(na_borrow);
+            drop(nb_borrow);
+
+            if is_a_leaf && is_b_leaf {
+                let na = na.borrow();
+                let nb = nb.borrow();
+
+                if key_a == key_b {
+                    changes.push(changer::ChangeOp::Update {
+                        id: key_a,
+                        value: na.data.clone(),
+                        nvalue: nb.data.clone(),
+                    });
+                } else {
+                    changes.push(changer::ChangeOp::Delete {
+                        id: key_a,
+                        value: na.data.clone(),
+                    });
+                    changes.push(changer::ChangeOp::Insert {
+                        id: key_b,
+                        value: nb.data.clone(),
+                    });
+                }
+                return;
+            }
+
+            let left_a = &na.borrow().left;
+            let right_a = &na.borrow().right;
+            let left_b = &nb.borrow().left;
+            let right_b = &nb.borrow().right;
+
+            compare_leafs(left_a, left_b, changes);
+            compare_leafs(right_a, right_b, changes);
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct Leaf<T: digest_primitives::Hashable> {
@@ -7,7 +75,7 @@ pub struct Leaf<T: digest_primitives::Hashable> {
     pub left:   Option<Rc<RefCell<Leaf<T>>>>,
     pub right:  Option<Rc<RefCell<Leaf<T>>>>,
     pub hash:   digest_primitives::Hash,
-    pub data:   T,
+    pub data:   T
 }
 
 impl<T: digest_primitives::Hashable> Leaf<T> {
@@ -117,5 +185,39 @@ impl<T: digest_primitives::Hashable> Leaf<T> {
         let right = self.right.as_ref().unwrap().borrow();
         self.hash = hfunc.hash(left.hash.concat(&right.hash).to_bytes());
         return true;
+    }
+
+    /*
+    Go deeper to data leafs for saving id and data.
+    Params:
+    - node: &Option<Rc<RefCell<Leaf<T>>>> - Entry point.
+    - changes: &mut Vec<changer::ChangeOp<T>> - Storage for changeset.
+    - kind: changer::ChangeKind - Change kind.
+     */
+    fn get_changeset(
+        node: &Option<Rc<RefCell<Leaf<T>>>>,
+        changes: &mut Vec<changer::ChangeOp<T>>,
+        kind: changer::ChangeKind,
+    ) -> () {
+        if let Some(rc_leaf) = node {
+            let leaf = rc_leaf.borrow();
+
+            if leaf.left.is_none() && leaf.right.is_none() {
+                let id = leaf.data.get_id();
+                let value = leaf.data.clone();
+
+                let change = match kind {
+                    changer::ChangeKind::Insert => changer::ChangeOp::Insert { id, value },
+                    changer::ChangeKind::Delete => changer::ChangeOp::Delete { id, value },
+                    changer::ChangeKind::Update => return
+                };
+
+                changes.push(change);
+            } 
+            else {
+                Self::get_changeset(&leaf.left, changes, kind.clone());
+                Self::get_changeset(&leaf.right, changes, kind);
+            }
+        }
     }
 }

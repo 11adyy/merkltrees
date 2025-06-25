@@ -1,6 +1,7 @@
 use std::{self, cell::RefCell, rc::Rc};
 use digest_primitives;
 mod leaf;
+mod changer;
 
 pub struct merkle-tree<H, T>
 where
@@ -15,7 +16,7 @@ where
 impl<H, T> merkle-tree<H, T>
 where
     H: digest_primitives::Hasher,
-    T: digest_primitives::Hashable
+    T: digest_primitives::Hashable + Clone
 {
     pub fn new() -> merkle-tree<H, T> {
         merkle-tree {
@@ -55,6 +56,12 @@ where
         }
 
         return self.head.as_ref().unwrap().borrow().equals(&tree.head.as_ref().unwrap().borrow());
+    }
+
+    pub fn deep_equals<H2: digest_primitives::Hasher>(&self, other: &merkle-tree<H2, T>) -> Vec<changer::ChangeOp<T>> {
+        let mut changes = Vec::new();
+        leaf::compare_leafs(&self.head, &other.head, &mut changes);
+        return changes;
     }
 
     pub fn rebuild(&mut self) -> bool {
@@ -150,12 +157,16 @@ where
 mod tests {
     use super::*;
 
-    #[derive(Clone)]
-    pub struct I128Wrapper(pub i128);
+    #[derive(Clone, Debug)]
+    pub struct I128Wrapper(pub i128, pub usize);
 
     impl digest_primitives::Hashable for I128Wrapper {
         fn default() -> Self {
-            return I128Wrapper(0);
+            return I128Wrapper(0, 0);
+        }
+
+        fn get_id(&self) -> usize {
+            return self.1 as usize;
         }
 
         fn to_bytes(&self) -> Vec<u8> {
@@ -163,7 +174,7 @@ mod tests {
         }
     }
 
-    fn create_tree<H: digest_primitives::Hasher, T: digest_primitives::Hashable>() -> merkle-tree<H, T> {
+    fn create_tree<H: digest_primitives::Hasher, T: digest_primitives::Hashable + Clone>() -> merkle-tree<H, T> {
         let mut tree: merkle-tree<H, T> = merkle-tree::new();
         tree.rebuild();
         return tree;
@@ -177,8 +188,8 @@ mod tests {
 
         let data_values: Vec<i128> = base_values.iter().map(|&v| v as i128 + offset as i128).collect::<Vec<i128>>();
         let mut tree: merkle-tree<H, I128Wrapper> = merkle-tree::new();
-        for i in data_values {
-            tree.push(I128Wrapper(i));
+        for (i, &j) in data_values.iter().enumerate() {
+            tree.push(I128Wrapper(j, i));
         }
 
         tree.rebuild();
@@ -188,7 +199,7 @@ mod tests {
     #[test]
     fn empty_update() -> () {
         let mut tree: merkle-tree<digest_primitives::ripemd160::Ripemd160, I128Wrapper> = create_tree();
-        assert!(!tree.update(15, I128Wrapper(936)), "Function update something, but tree don't contain any data!");
+        assert!(!tree.update(15, I128Wrapper(936, 15)), "Function update something, but tree don't contain any data!");
     }
 
     #[test]
@@ -215,15 +226,15 @@ mod tests {
     #[test]
     fn update_test() -> () {
         let mut tree: merkle-tree<digest_primitives::tigerhash::TigerHash, I128Wrapper> = create_nempty_tree(0);
-        assert!(tree.update(4, I128Wrapper(936)), "Function can't update data, but should do this!"); 
+        assert!(tree.update(4, I128Wrapper(936, 4)), "Function can't update data, but should do this!"); 
     }
 
     #[test]
     fn clear_update() -> () {
         let mut tree: merkle-tree<digest_primitives::sha512::SHA512, I128Wrapper> = create_nempty_tree(15);
-        assert!(tree.update(4, I128Wrapper(936)), "Function can't update data, but should do this!"); 
+        assert!(tree.update(4, I128Wrapper(936, 4)), "Function can't update data, but should do this!"); 
         tree.clear();
-        assert!(!tree.update(4, I128Wrapper(936)), "Function update something, but tree don't contain any data!");
+        assert!(!tree.update(4, I128Wrapper(936, 4)), "Function update something, but tree don't contain any data!");
     }
 
     #[test]
@@ -233,7 +244,7 @@ mod tests {
         assert!(ftree.equals(&stree), "Trees are not same, but should be!");
 
         let prev: I128Wrapper = stree.get(4);
-        assert!(stree.update(4, I128Wrapper(936)), "Function can't update data, but should do this!"); 
+        assert!(stree.update(4, I128Wrapper(936, 4)), "Function can't update data, but should do this!"); 
         assert!(!ftree.equals(&stree), "Trees are same, but shouldn't be!");
         assert!(stree.update(4, prev), "Function can't update data, but should do this!"); 
         assert!(ftree.equals(&stree), "Trees are not same, but should be!");
@@ -246,5 +257,25 @@ mod tests {
         assert!(ftree.equals(&stree), "Trees are not same, but should be!");
         ftree.delete(0);
         assert!(!ftree.equals(&stree), "Trees are same, but shouldn't be!");
+    }
+
+    #[test]
+    fn changeset_test() -> () {
+        let ftree: merkle-tree<digest_primitives::blake2b::Blake2B, I128Wrapper> = create_nempty_tree(0);
+        let mut stree: merkle-tree<digest_primitives::blake2b::Blake2B, I128Wrapper> = create_nempty_tree(0);
+
+        stree.update(0, I128Wrapper(1234567890, 0));
+        stree.update(1, I128Wrapper(1234567890, 1));
+        stree.update(2, I128Wrapper(1234567890, 2));
+        stree.update(3, I128Wrapper(1234567890, 3));
+        stree.update(4, I128Wrapper(1234567890, 4));
+        stree.update(5, I128Wrapper(1234567890, 5));
+        stree.update(6, I128Wrapper(1234567890, 6));
+        stree.update(7, I128Wrapper(1234567890, 7));
+
+        let changes = ftree.deep_equals(&stree);
+        for change in changes {
+            println!("{:?}", change);
+        }
     }
 }
