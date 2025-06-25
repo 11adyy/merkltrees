@@ -49,7 +49,7 @@ where
     Return true if tree's root hashes are equals.
     Note: Will return false if head is NULL.
      */
-    pub fn equals(&mut self, tree: &merkle-tree<H, T>) -> bool {
+    pub fn equals<H2: digest_primitives::Hasher>(&self, tree: &merkle-tree<H2, T>) -> bool {
         if self.head.is_none() || tree.head.is_none() {
             return false;
         }
@@ -193,27 +193,34 @@ mod tests {
 
     #[test]
     fn cmp_test() -> () {
-        let mut ftree: merkle-tree<digest_primitives::ripemd160::Ripemd160, I128Wrapper> = create_nempty_tree(0);
-        let mut stree: merkle-tree<digest_primitives::ripemd160::Ripemd160, I128Wrapper> = create_nempty_tree(0);
-        assert!(ftree.equals(&mut stree), "Trees are not same, but should be!");
+        let ftree: merkle-tree<digest_primitives::ripemd160::Ripemd160, I128Wrapper> = create_nempty_tree(0);
+        let stree: merkle-tree<digest_primitives::ripemd160::Ripemd160, I128Wrapper> = create_nempty_tree(0);
+        assert!(ftree.equals(&stree), "Trees are not same, but should be!");
     }
 
     #[test]
     fn ncmp_test() -> () {
-        let mut ftree: merkle-tree<digest_primitives::ripemd160::Ripemd160, I128Wrapper> = create_nempty_tree(0);
-        let mut stree: merkle-tree<digest_primitives::ripemd160::Ripemd160, I128Wrapper> = create_nempty_tree(1);
-        assert!(!ftree.equals(&mut stree), "Trees are same, but shouldn't be!");
+        let ftree: merkle-tree<digest_primitives::ripemd160::Ripemd160, I128Wrapper> = create_nempty_tree(0);
+        let stree: merkle-tree<digest_primitives::ripemd160::Ripemd160, I128Wrapper> = create_nempty_tree(1);
+        assert!(!ftree.equals(&stree), "Trees are same, but shouldn't be!");
+    }
+
+    #[test]
+    fn ncmp_test2() -> () {
+        let ftree: merkle-tree<digest_primitives::ripemd160::Ripemd160, I128Wrapper> = create_nempty_tree(0);
+        let stree: merkle-tree<digest_primitives::md5::MD5, I128Wrapper> = create_nempty_tree(0);
+        assert!(!ftree.equals(&stree), "Trees are same, but shouldn't be!");
     }
 
     #[test]
     fn update_test() -> () {
-        let mut tree: merkle-tree<digest_primitives::ripemd160::Ripemd160, I128Wrapper> = create_nempty_tree(0);
+        let mut tree: merkle-tree<digest_primitives::tigerhash::TigerHash, I128Wrapper> = create_nempty_tree(0);
         assert!(tree.update(4, I128Wrapper(936)), "Function can't update data, but should do this!"); 
     }
 
     #[test]
     fn clear_update() -> () {
-        let mut tree: merkle-tree<digest_primitives::ripemd160::Ripemd160, I128Wrapper> = create_nempty_tree(15);
+        let mut tree: merkle-tree<digest_primitives::sha512::SHA512, I128Wrapper> = create_nempty_tree(15);
         assert!(tree.update(4, I128Wrapper(936)), "Function can't update data, but should do this!"); 
         tree.clear();
         assert!(!tree.update(4, I128Wrapper(936)), "Function update something, but tree don't contain any data!");
@@ -221,23 +228,23 @@ mod tests {
 
     #[test]
     fn update_test2() -> () {
-        let mut ftree: merkle-tree<digest_primitives::ripemd160::Ripemd160, I128Wrapper> = create_nempty_tree(0);
-        let mut stree: merkle-tree<digest_primitives::ripemd160::Ripemd160, I128Wrapper> = create_nempty_tree(0);
-        assert!(ftree.equals(&mut stree), "Trees are not same, but should be!");
+        let ftree: merkle-tree<digest_primitives::sha3::SHA3, I128Wrapper> = create_nempty_tree(0);
+        let mut stree: merkle-tree<digest_primitives::sha3::SHA3, I128Wrapper> = create_nempty_tree(0);
+        assert!(ftree.equals(&stree), "Trees are not same, but should be!");
 
         let prev: I128Wrapper = stree.get(4);
         assert!(stree.update(4, I128Wrapper(936)), "Function can't update data, but should do this!"); 
-        assert!(!ftree.equals(&mut stree), "Trees are same, but shouldn't be!");
+        assert!(!ftree.equals(&stree), "Trees are same, but shouldn't be!");
         assert!(stree.update(4, prev), "Function can't update data, but should do this!"); 
-        assert!(ftree.equals(&mut stree), "Trees are not same, but should be!");
+        assert!(ftree.equals(&stree), "Trees are not same, but should be!");
     }
 
     #[test]
     fn delete_test() -> () {
-        let mut ftree: merkle-tree<digest_primitives::ripemd160::Ripemd160, I128Wrapper> = create_nempty_tree(0);
-        let mut stree: merkle-tree<digest_primitives::ripemd160::Ripemd160, I128Wrapper> = create_nempty_tree(0);
-        assert!(ftree.equals(&mut stree), "Trees are not same, but should be!");
+        let mut ftree: merkle-tree<digest_primitives::blake2b::Blake2B, I128Wrapper> = create_nempty_tree(0);
+        let stree: merkle-tree<digest_primitives::blake2b::Blake2B, I128Wrapper> = create_nempty_tree(0);
+        assert!(ftree.equals(&stree), "Trees are not same, but should be!");
         ftree.delete(0);
-        assert!(!ftree.equals(&mut stree), "Trees are same, but shouldn't be!");
+        assert!(!ftree.equals(&stree), "Trees are same, but shouldn't be!");
     }
 }
